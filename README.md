@@ -1,7 +1,9 @@
 # POPS-UQ
 Code for the paper: 
-**Parameter uncertainties for imperfect surrogate models in the low-noise regime**
-[arXiv 2024](https://arxiv.org/abs/2402.01810v3)
+
+*Parameter uncertainties for imperfect surrogate models in the low-noise regime*
+
+TD Swinburne and D Perez, [arXiv 2024](https://arxiv.org/abs/2402.01810v3)
 
 ```bibtex
 @misc{swinburne2024,
