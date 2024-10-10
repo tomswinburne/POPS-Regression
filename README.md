@@ -17,6 +17,7 @@ Code for the paper:
 
 ## Example usage
 
+Usage follows `sklearn.linear_model.BayesianRidge` :
 
 ```python
 from POPSRegressor import POPSRegressor
@@ -42,5 +43,6 @@ y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True,resample=T
 y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds=True,resample=True,return_epistemic_std=True)
 ```
 
-
+As can be seen, the final error bars give very good coverage of the test output
+![Example POPS regression](example_image.png)
 
