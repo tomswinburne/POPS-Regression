@@ -341,10 +341,7 @@ class POPSRegressor(DeterministicBayesianRidge):
         self.hypercube_support, self.hypercube_bounds = \
             self._hypercube_fit(self.pointwise_correction)
         
-        self.hypercube_samples = self._resample_hypercube()
-
-        self.hypercube_sigma = self.hypercube_samples@self.hypercube_samples.T
-        self.hypercube_sigma /= self.hypercube_samples.shape[1]
+        self.hypercube_samples,self.hypercube_sigma = self._resample_hypercube()
 
     def _hypercube_fit(self,pointwise_correction):
         """
@@ -446,7 +443,12 @@ class POPSRegressor(DeterministicBayesianRidge):
         elif self.resampling_method == 'uniform':
             samples = np.random.uniform(size=(low.size,n_resample))
         samples = low[:,None] + (high-low)[:,None]*samples
-        return self.hypercube_support@samples
+
+        hypercube_samples = hypercube_support@samples
+        hypercube_sigma = hypercube_samples@hypercube_samples.T
+        hypercube_sigma /= hypercube_samples.shape[1]
+
+        return hypercube_samples,hypercube_sigma
 
     def predict(self,X,return_bounds=False,resample=False,return_epistemic_std=False):
         """
@@ -474,22 +476,24 @@ class POPSRegressor(DeterministicBayesianRidge):
         y_min : array-like of shape (n_samples,), optional
             The lower bound of the prediction interval. Only returned if return_bounds is True.
         """
+        
         # DeterministicBayesianRidge suppresses aleatoric uncertainty
         y_pred, y_epistemic_std = super().predict(X,return_std=True)
         
+        if resample:
+            self.hypercube_samples,self.hypercube_sigma = \
+                self._resample_hypercube()
+
         # Combine misspecification and epistemic uncertainty
         y_misspecification_var = (X@self.hypercube_sigma * X).sum(1)
-        #y_std = np.sqrt((X@self.hypercube_samples).var(1) + y_epistemic_std**2)
         y_std = np.sqrt(y_misspecification_var + y_epistemic_std**2)
         
-        if resample:
-            self.hypercube_samples = self._resample_hypercube()
         res = [y_pred, y_std]
-        
         if return_bounds:
             y_max = (X@self.hypercube_samples).max(1) + y_pred
             y_min = (X@self.hypercube_samples).min(1) + y_pred
             res += [y_max, y_min]
+        
         if return_epistemic_std:
             res += [y_epistemic_std]
         

@@ -46,5 +46,12 @@ y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds
 ```
 
 As can be seen, the final error bars give very good coverage of the test output
+
+Fitting a quartic polynomial to a complex function
+
+Green: two sigma of posterior from Bayesian Regression
+
+Orange: two sigma of posterior from POPS Regression
+
 ![Example POPS regression](example_image.png)
 
