@@ -58,13 +58,10 @@ model.fit(X_train,y_train)
 y_pred, y_std = model.predict(X_test,return_std=True)
 
 # can also return max/min 
-y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
+y_pred, y_std, y_max, y_min = model.predict(X_test,return_std=True,return_bounds=True)
 
-# can also return max/min 
-y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
-
-# can also return the epistemic uncertainty (descreases as 1/sqrt(n_samples))
-y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds=True,return_epistemic_std=True)
+# can also return the epistemic uncertainty seperately
+y_pred, y_std, y_max, y_min, y_epistemic_std = model.predict(X_test,return_bounds=True,return_epistemic_std=True)
 ```
 
 As can be seen, the final error bars give very good coverage of the test output
