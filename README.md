@@ -26,7 +26,7 @@ pip install POPSRegression
 ## What is POPSRegression?
 
 Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
-
+}
 Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The `alpha_` attribute which estimates aleatoric uncertainty is not used for predictions as correctly it should be assumed negligable.
 
 Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
@@ -38,7 +38,7 @@ weight uncertainties (`sigma_` in `BayesianRidge`) are significantly underestima
 ## Example usage
 Here, usage follows `sklearn.linear_model`, inheriting `BayesianRidge`
 
-After running `BayesianRidge.fit(..)`, the `alpha_` attribute is fixed to `np.inf` as aleatoric uncertainty is assumed negligable.
+After running `BayesianRidge.fit(..)`, the `alpha_` attribute is not used for predictions.
 
 The `sigma_` matrix still contains epistemic weight uncertainties, whilst `misspecification_sigma_` contains the POPS uncertainties. 
 
