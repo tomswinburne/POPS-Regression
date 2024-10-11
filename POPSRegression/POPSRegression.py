@@ -448,7 +448,7 @@ class POPSRegression(BayesianRidge):
         """
         self._resample_hypercube(resampling_method=resampling_method)
 
-    def predict(self,X,return_bounds=False,return_epistemic_std=False):
+    def predict(self,X,return_std=False,return_bounds=False,return_epistemic_std=False):
         """
         Make predictions using the POPS model.
 
@@ -456,6 +456,8 @@ class POPSRegression(BayesianRidge):
         -----------
         X : array-like of shape (n_samples, n_features)
             The input samples for prediction.
+        return_std : bool, default=False
+            If True, return the combined misspecification and epistemic uncertainties.
         return_bounds : bool, default=False
             If True, return the min and max bounds of the prediction.
         return_epistemic_std : bool, default=False
@@ -477,6 +479,8 @@ class POPSRegression(BayesianRidge):
 
         
         y_mean = self._decision_function(X)
+        if not return_std:
+            return y_mean
         
         y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
         
