@@ -1,5 +1,5 @@
-# POPS-UQ
-Code for the paper: 
+# POPSRegression
+Regression scheme from the paper 
 
 *Parameter uncertainties for imperfect surrogate models in the low-noise regime*
 
@@ -17,20 +17,47 @@ TD Swinburne and D Perez, [arXiv 2024](https://arxiv.org/abs/2402.01810v3)
 }
 ```
 
-## Example usage
 
-Usage follows `sklearn.linear_model.BayesianRidge` :
+Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
+
+Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm. 
+
+The method can easily handle high-dimensional linear problems with minimal overhead compared to any linear regression scheme.
+
+Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
+In many important cases the target calcualtion is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. 
+However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
+Existing Bayesian regression schemes based on loss minimization can only estimate epistemic and aleatoric uncertainties. 
+
+## Example usage
+Here, usage follows `sklearn.linear_model`, inheriting `BayesianRidge`
+
+After running `BayesianRidge.fit(..)`, the `alpha_` attribute is fixed to `np.inf` as aleatoric uncertainty is assumed negligable.
+
+The `sigma_` matrix still contains epistemic weight uncertainties, whilst `misspecification_sigma_` contains the POPS uncertainties. 
 
 ```python
-from POPSRegressor import POPSRegressor
+
+from POPSRegression import POPSRegression
 
 X_train,X_test,y_train,y_test = ...
 
-# Default values- uniformly resample the hypercube with 1.0 samples / training point
-model = POPSRegressor(resampling_method='uniform',resample_density=1.)
+# Sobol resampling of hypercube with 1.0 samples / training point
+model = POPSRegression(resampling_method='sobol',resample_density=1.)
 
 # fit the model, sample POPS hypercube
 model.fit(X_train,y_train)
+
+# Return hypercube std, max/min and epistemic uncertaint from inference
+y_pred, y_std, y_max, y_min, y_std_epistmic = \
+    model.predict(X_test,return_bounds=True,resample=True,return_epistemic_std=True)
+
+
+
+
+# can also return max/min 
+y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
+
 
 # returns std by default
 y_pred, y_std = model.predict(X_test)
@@ -47,11 +74,11 @@ y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds
 
 As can be seen, the final error bars give very good coverage of the test output
 
-Fitting a quartic polynomial to a complex function
+Extreme low-dimensional case, fitting N data points to a quartic polynomial (P=5 parameters) to some complex oscillatory function
 
-Green: two sigma of posterior from Bayesian Regression
+Green: two sigma of `sigma_` weight uncertainty from Bayesian Regression (i.e. without `alpha_` term for aleatoric error)
 
-Orange: two sigma of posterior from POPS Regression
+Orange: two sigma of `sigma_` and `misspecification_sigma_` posterior from POPS Regression
 
 ![Example POPS regression](example_image.png)
 
