@@ -1,5 +1,5 @@
 # POPSRegression
-Regression scheme from the paper 
+Linear regression scheme from the paper 
 
 *Parameter uncertainties for imperfect surrogate models in the low-noise regime*
 
