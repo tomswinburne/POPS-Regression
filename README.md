@@ -72,4 +72,6 @@ Green: two sigma of `sigma_` weight uncertainty from Bayesian Regression (i.e. w
 
 Orange: two sigma of `sigma_` and `misspecification_sigma_` posterior from POPS Regression
 
+Gray: min-max of posterior from POPS Regression
+
 <img src="https://github.com/tomswinburne/POPS-Regression/blob/main/example_image.png?raw=true"></img>
