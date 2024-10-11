@@ -17,6 +17,13 @@ TD Swinburne and D Perez, [arXiv 2024](https://arxiv.org/abs/2402.01810v3)
 }
 ```
 
+## Installation
+There will be a PR on `scikit-learn` soon, but in the meantime
+```bash
+pip install POPSRegression
+```
+
+## What is POPSRegression?
 
 Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
 
