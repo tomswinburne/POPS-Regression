@@ -500,6 +500,6 @@ class POPSRegression(BayesianRidge):
             res += [y_max, y_min]
         
         if return_epistemic_std:
-            res += [y_epistemic_std]
+            res += [np.sqrt(y_epistemic_var)]
         
         return tuple(res)
