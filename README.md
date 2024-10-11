@@ -54,13 +54,11 @@ model = POPSRegression(resampling_method='sobol',resample_density=1.)
 # fit the model, sample POPS hypercube
 model.fit(X_train,y_train)
 
-# Return hypercube std, max/min and epistemic uncertaint from inference
-y_pred, y_std, y_max, y_min, y_std_epistmic = \
-    model.predict(X_test,return_bounds=True,resample=True,return_epistemic_std=True)
+# Return mean and hypercube std
+y_pred, y_std = model.predict(X_test,return_std=True)
 
 # can also return max/min 
 y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
-
 
 # returns std by default
 y_pred, y_std = model.predict(X_test)
@@ -68,11 +66,8 @@ y_pred, y_std = model.predict(X_test)
 # can also return max/min 
 y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
 
-# can also resample the hypercube vectors
-y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True,resample=True)
-
 # can also return the epistemic uncertainty (descreases as 1/sqrt(n_samples))
-y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds=True,resample=True,return_epistemic_std=True)
+y_pred, y_std, y_max, y_min, y_std_epistmic = model.predict(X_test,return_bounds=True,return_epistemic_std=True)
 ```
 
 As can be seen, the final error bars give very good coverage of the test output
