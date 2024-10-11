@@ -482,10 +482,8 @@ class POPSRegression(BayesianRidge):
         if not return_std:
             return y_mean
         
-        y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
-        
         # we do NOT include aleatoric error !
-        y_epistemic_var = np.sqrt(y_epistemic_var)
+        y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
         
         # Combine misspecification and epistemic uncertainty
         y_misspecification_var = \

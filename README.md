@@ -60,9 +60,6 @@ y_pred, y_std = model.predict(X_test,return_std=True)
 # can also return max/min 
 y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
 
-# returns std by default
-y_pred, y_std = model.predict(X_test)
-
 # can also return max/min 
 y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
 
