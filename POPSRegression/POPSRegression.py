@@ -446,7 +446,8 @@ class POPSRegression(BayesianRidge):
         useful for uncertainty quantification in predictions and can be called
         multiple times to get different uncertainty estimates.
         """
-        self._resample_hypercube(resampling_method=resampling_method)
+        self.hypercube_samples,self.misspecification_sigma_ = \
+            self._resample_hypercube(resampling_method=resampling_method)
 
     def predict(self,X,return_std=False,return_bounds=False,return_epistemic_std=False):
         """
