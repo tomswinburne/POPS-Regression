@@ -1,8 +1,11 @@
 import numpy as np
 from sklearn.linear_model import BayesianRidge
+from scipy import linalg
 from scipy.linalg import pinvh, eigh
 from sklearn.base import BaseEstimator, RegressorMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
+from sklearn.linear_model._base import _preprocess_data, _rescale_data
+
 from numbers import Real, Integral
 from scipy.stats import qmc 
 
@@ -15,7 +18,7 @@ class POPSRegression(BayesianRidge):
     """
     Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
 
-    Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The default`alpha_` attribute is fixed to `np.inf` as aleatoric uncertainty is assumed negligable.
+    Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The `alpha_` attribute which estimates aleatoric uncertainty is not used for predictions as correctly it should be assumed negligable.
 
     Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
     In many important cases the target calcualtion is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
@@ -66,19 +69,19 @@ class POPSRegression(BayesianRidge):
         Independent term in decision function. Set to 0.0 if
         `fit_intercept = False`.
     alpha_ : float
-        Estimated precision of the noise.
+        Estimated precision of the noise. Not used for prediction.
     lambda_ : float
-        Estimated precision of the weights.
+        Estimated epistemic precision of the weights.
     sigma_ : array-like of shape (n_features, n_features)
-        Estimated variance-covariance matrix of the weights.
+        Estimated epstemic variance-covariance matrix of the weights.
+    misspecification_sigma_ : array-like of shape (n_features, n_features)
+        Estimated misspecification variance-covariance matrix of the weights.
     scores_ : list
         If computed, value of the objective function (to be maximized).
 
     Notes
     -----
-    The POPS algorithm extends Bayesian Ridge Regression by incorporating
-    probabilistic optimization of predictive subspaces, which can lead to
-    improved performance in high-dimensional settings.
+    The POPS algorithm extends Bayesian Ridge Regression for low-noise, misspecified regression problems, which can lead to improved performance in uncertainty prediction, suitable for high-dimensional settings.
 
     References
     ----------
@@ -149,55 +152,144 @@ class POPSRegression(BayesianRidge):
             self.fit_intercept_flag = True
             self.fit_intercept = False
     
+    
     @_fit_context(prefer_skip_nested_validation=True)
     def fit(self, X, y, sample_weight=None):
-        """
-        Fit the POPS regression model.
+        """Fit the model.
 
-        This method extends the fit method of BayesianRidge to include POPS-specific
-        computations, such as calculating leverage scores, pointwise corrections,
-        and determining the hypercube support.
+        Parameters
+        ----------
+        X : ndarray of shape (n_samples, n_features)
+            Training data.
+        y : ndarray of shape (n_samples,)
+            Target values. Will be cast to X's dtype if necessary.
 
-        Parameters:
-        -----------
-        X : array-like of shape (n_samples, n_features)
-            The input samples.
-        y : array-like of shape (n_samples,)
-            The target values.
-        sample_weight : array-like of shape (n_samples,), default=None
+        sample_weight : ndarray of shape (n_samples,), default=None
             Individual weights for each sample.
 
-        Returns:
-        --------
+            .. versionadded:: 0.20
+               parameter *sample_weight* support to BayesianRidge.
+
+        Returns
+        -------
         self : object
             Returns the instance itself.
         """
+
         if self.fit_intercept_flag:
-            print("Warning: fit_intercept is set to False for POPS regression. Adding a constant feature for regression.")
+            # add a constant feature
             X = np.hstack([X, np.ones((X.shape[0], 1))])
-        
-        super().fit(X, y, sample_weight)
-        
-        # suppress aleatoric uncertainty
-        self.alpha_ = np.inf 
 
-        n_features = X.shape[1]
-        n_samples = X.shape[0]
+        X, y = self._validate_data(
+            X, y, dtype=[np.float64, np.float32], force_writeable=True, y_numeric=True
+        )
+        dtype = X.dtype
 
-        # Prior is lambda_ from BayesianRidge
-        prior = self.lambda_ * np.eye(n_features) / n_samples
-        
-        # Prior ensures that the design matrix is invertible
-        inverse_design_matrix = pinvh(X.T @ X / n_samples + prior)
+        if sample_weight is not None:
+            sample_weight = _check_sample_weight(sample_weight, X, dtype=dtype)
 
-        # Calculate leverage and pointwise fits
-        errors = y - X @ self.coef_  # errors to mean prediction
-        X_inverse_design_matrix = X @ inverse_design_matrix
+        X, y, X_offset_, y_offset_, X_scale_ = _preprocess_data(
+            X,
+            y,
+            fit_intercept=self.fit_intercept,
+            copy=self.copy_X,
+            sample_weight=sample_weight,
+        )
+
+        if sample_weight is not None:
+            # Sample weight can be implemented via a simple rescaling.
+            X, y, _ = _rescale_data(X, y, sample_weight)
+
+        self.X_offset_ = X_offset_
+        self.X_scale_ = X_scale_
+        n_samples, n_features = X.shape
+
+        # Initialization of the values of the parameters
+        eps = np.finfo(np.float64).eps
+        # Add `eps` in the denominator to omit division by zero if `np.var(y)`
+        # is zero
+        alpha_ = self.alpha_init
+        lambda_ = self.lambda_init
+        if alpha_ is None:
+            alpha_ = 1.0 / (np.var(y) + eps)
+        if lambda_ is None:
+            lambda_ = 1.0
+
+        # Avoid unintended type promotion to float64 with numpy 2
+        alpha_ = np.asarray(alpha_, dtype=dtype)
+        lambda_ = np.asarray(lambda_, dtype=dtype)
+
+        verbose = self.verbose
+        lambda_1 = self.lambda_1
+        lambda_2 = self.lambda_2
+        alpha_1 = self.alpha_1
+        alpha_2 = self.alpha_2
+
+        self.scores_ = list()
+        coef_old_ = None
+
+        XT_y = np.dot(X.T, y)
+        U, S, Vh = linalg.svd(X, full_matrices=False)
+        eigen_vals_ = S**2
+
+        # Convergence loop of the bayesian ridge regression
+        for iter_ in range(self.max_iter):
+            # update posterior mean coef_ based on alpha_ and lambda_ and
+            # compute corresponding rmse
+            coef_, rmse_ = self._update_coef_(
+                X, y, n_samples, n_features, XT_y, U, Vh, eigen_vals_, alpha_, lambda_
+            )
+            if self.compute_score:
+                # compute the log marginal likelihood
+                s = self._log_marginal_likelihood(
+                    n_samples, n_features, eigen_vals_, alpha_, lambda_, coef_, rmse_
+                )
+                self.scores_.append(s)
+
+            # Update alpha and lambda according to (MacKay, 1992)
+            gamma_ = np.sum((alpha_ * eigen_vals_) / (lambda_ + alpha_ * eigen_vals_))
+            lambda_ = (gamma_ + 2 * lambda_1) / (np.sum(coef_**2) + 2 * lambda_2)
+            alpha_ = (n_samples - gamma_ + 2 * alpha_1) / (rmse_ + 2 * alpha_2)
+
+            # Check for convergence
+            if iter_ != 0 and np.sum(np.abs(coef_old_ - coef_)) < self.tol:
+                if verbose:
+                    print("Convergence after ", str(iter_), " iterations")
+                break
+            coef_old_ = np.copy(coef_)
+
+        self.n_iter_ = iter_ + 1
+
+        # return regularization parameters and corresponding posterior mean,
+        # log marginal likelihood and posterior covariance
+        self.alpha_ = alpha_
+        self.lambda_ = lambda_
+        self.coef_, rmse_ = self._update_coef_(
+            X, y, n_samples, n_features, XT_y, U, Vh, eigen_vals_, alpha_, lambda_
+        )
+        if self.compute_score:
+            # compute the log marginal likelihood
+            s = self._log_marginal_likelihood(
+                n_samples, n_features, eigen_vals_, alpha_, lambda_, coef_, rmse_
+            )
+            self.scores_.append(s)
+            self.scores_ = np.array(self.scores_)
+
+        # posterior covariance is given by 1/alpha_ * scaled_sigma_
+        scaled_sigma_ = np.dot(
+            Vh.T, Vh / (eigen_vals_ + lambda_ / alpha_)[:, np.newaxis]
+        )
+
         
-        self.leverage_scores = (X_inverse_design_matrix * X).sum(1)
+        errors = (y - X @ self.coef_)
         
-        self.pointwise_correction = X_inverse_design_matrix \
-            * (errors/self.leverage_scores)[:,None]
+        # errors to mean prediction        
+        # leverage scores
+        leverage = np.sum(np.dot(X,scaled_sigma_) * X,axis=1)
+        self.leverage_scores = (1.0 / alpha_) * leverage
+
+        self.pointwise_correction = np.dot(X,scaled_sigma_)
+        self.pointwise_correction *= (errors/leverage)[:,None]
         
         # Determine bounding hypercube from pointwise fits
         self.hypercube_support, self.hypercube_bounds = \
@@ -206,6 +298,14 @@ class POPSRegression(BayesianRidge):
         
         self.hypercube_samples,self.misspecification_sigma_ = \
             self._resample_hypercube()
+
+
+        self.sigma_ = (1.0 / alpha_) * scaled_sigma_
+        
+        self._set_intercept(X_offset_, y_offset_, X_scale_)
+
+        return self
+    
 
     def _hypercube_fit(self,pointwise_correction,percentile_clipping=0.0):
         """
@@ -372,17 +472,25 @@ class POPSRegression(BayesianRidge):
         y_min : array-like of shape (n_samples,), optional
             The lower bound of the prediction interval. Only returned if return_bounds is True.
         """
+        if self.fit_intercept_flag:
+            X = np.hstack([X, np.ones((X.shape[0], 1))])
+
         
-        # DeterministicBayesianRidge suppresses aleatoric uncertainty
-        y_pred, y_epistemic_std = \
-            super().predict(X,return_std=True)
+        y_mean = self._decision_function(X)
         
+        y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
+        
+        # we do NOT include aleatoric error !
+        y_epistemic_var = np.sqrt(y_epistemic_var)
         
         # Combine misspecification and epistemic uncertainty
-        y_misspecification_var = (X@self.misspecification_sigma_ * X).sum(1)
-        y_std = np.sqrt(y_misspecification_var + y_epistemic_std**2)
+        y_misspecification_var = \
+            (np.dot(X, self.misspecification_sigma_) * X).sum(axis=1)
+        
+        y_std = np.sqrt(y_misspecification_var + y_epistemic_var)
         
         res = [y_pred, y_std]
+
         if return_bounds:
             y_max = (X@self.hypercube_samples).max(1) + y_pred
             y_min = (X@self.hypercube_samples).min(1) + y_pred

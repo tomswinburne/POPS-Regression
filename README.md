@@ -20,14 +20,13 @@ TD Swinburne and D Perez, [arXiv 2024](https://arxiv.org/abs/2402.01810v3)
 
 Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
 
-Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm. 
-
-The method can easily handle high-dimensional linear problems with minimal overhead compared to any linear regression scheme.
+Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The `alpha_` attribute which estimates aleatoric uncertainty is not used for predictions as correctly it should be assumed negligable.
 
 Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
-In many important cases the target calcualtion is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. 
-However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
-Existing Bayesian regression schemes based on loss minimization can only estimate epistemic and aleatoric uncertainties. 
+In many important cases the target calcualtion is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
+
+Existing Bayesian regression schemes based on loss minimization can only estimate epistemic and aleatoric uncertainties. In the low-noise limit, 
+weight uncertainties (`sigma_` in `BayesianRidge`) are significantly underestimated as they only account for epistemic uncertainties which decay with increasing data. Predictions then assume any additional error is due to an aleatoric uncertainty (`alpha_` in `BayesianRidge`), which is erroneous in a low-noise setting. This has significant implications on how uncertainty is propagated using weight uncertainties. 
 
 ## Example usage
 Here, usage follows `sklearn.linear_model`, inheriting `BayesianRidge`
@@ -51,9 +50,6 @@ model.fit(X_train,y_train)
 # Return hypercube std, max/min and epistemic uncertaint from inference
 y_pred, y_std, y_max, y_min, y_std_epistmic = \
     model.predict(X_test,return_bounds=True,resample=True,return_epistemic_std=True)
-
-
-
 
 # can also return max/min 
 y_pred, y_std, y_max, y_min = model.predict(X_test,return_bounds=True)
