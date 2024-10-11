@@ -286,7 +286,7 @@ class POPSRegression(BayesianRidge):
         # errors to mean prediction        
         # leverage scores
         leverage = np.sum(np.dot(X,scaled_sigma_) * X,axis=1)
-        self.leverage_scores = (1.0 / alpha_) * leverage
+        self.leverage_scores = leverage
 
         self.pointwise_correction = np.dot(X,scaled_sigma_)
         self.pointwise_correction *= (errors/leverage)[:,None]
@@ -463,7 +463,7 @@ class POPSRegression(BayesianRidge):
 
         Returns:
         --------
-        y_pred : array-like of shape (n_samples,)
+        y_mean : array-like of shape (n_samples,)
             The predicted mean values.
         y_std : array-like of shape (n_samples,)
             The predicted standard deviation (uncertainty) for each prediction.
@@ -489,11 +489,11 @@ class POPSRegression(BayesianRidge):
         
         y_std = np.sqrt(y_misspecification_var + y_epistemic_var)
         
-        res = [y_pred, y_std]
+        res = [y_mean, y_std]
 
         if return_bounds:
-            y_max = (X@self.hypercube_samples).max(1) + y_pred
-            y_min = (X@self.hypercube_samples).min(1) + y_pred
+            y_max = (X@self.hypercube_samples).max(1) + y_mean
+            y_min = (X@self.hypercube_samples).min(1) + y_mean
             res += [y_max, y_min]
         
         if return_epistemic_std:
