@@ -181,8 +181,7 @@ class POPSRegression(BayesianRidge):
             X = np.hstack([X, np.ones((X.shape[0], 1))])
 
         X, y = self._validate_data(
-            X, y, dtype=[np.float64, np.float32], force_writeable=True, y_numeric=True
-        )
+            X, y, dtype=[np.float64, np.float32])
         dtype = X.dtype
 
         if sample_weight is not None:
