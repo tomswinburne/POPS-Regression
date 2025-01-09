@@ -3,17 +3,15 @@ Linear regression scheme from the paper
 
 *Parameter uncertainties for imperfect surrogate models in the low-noise regime*
 
-TD Swinburne and D Perez, [arXiv 2024](https://arxiv.org/abs/2402.01810v3)
+TD Swinburne and D Perez, [Machine Learning: Science and Technology 2025](http://iopscience.iop.org/article/10.1088/2632-2153/ad9fce)
 
 ```bibtex
-@misc{swinburne2024,
-      title={Parameter uncertainties for imperfect surrogate models in the low-noise regime}, 
-      author={Thomas D Swinburne and Danny Perez},
-      year={2024},
-      eprint={2402.01810},
-      archivePrefix={arXiv},
-      primaryClass={stat.ML},
-      url={https://arxiv.org/abs/2402.01810v3}, 
+@article{swinburne2025,
+	author={Swinburne, Thomas and Perez, Danny},
+	title={Parameter uncertainties for imperfect surrogate models in the low-noise regime},
+	journal={Machine Learning: Science and Technology},
+	doi={10.1088/2632-2153/ad9fce},
+	year={2025}
 }
 ```
 
@@ -25,8 +23,8 @@ pip install POPSRegression
 
 ## What is POPSRegression?
 
-Bayesian regression for low-noise data (vanishing aleatoric uncertainty). 
-}
+**Bayesian regression for low-noise data (vanishing aleatoric uncertainty).**
+
 Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The `alpha_` attribute which estimates aleatoric uncertainty is not used for predictions as correctly it should be assumed negligable.
 
 Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
