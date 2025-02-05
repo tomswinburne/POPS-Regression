@@ -61,6 +61,8 @@ class POPSRegression(BayesianRidge):
         must be one of 'sobol', 'latin', 'halton', 'grid', or 'uniform'.
     percentile_clipping : float, default=0.0
         Percentile to clip from each end of the distribution when determining the hypercube bounds, i.e. spans [x,100-x]. Must be between 0 and 50, but in practice should be between 0.0% and 0.5% for robust bounds
+    leverage_percentile : float, default=50.0
+        Upper percentile of leverage scores to consider for hypercube fitting. Default is 50%.
     Attributes
     ----------
     coef_ : array-like of shape (n_features,)
@@ -104,7 +106,8 @@ class POPSRegression(BayesianRidge):
         "resampling_method": [StrOptions({"uniform","sobol","latin","halton"})],
         "mode_threshold": [Interval(Real, 0, None, closed="neither")],
         "resample_density": [Interval(Real, 0, None, closed="neither")],
-        "percentile_clipping": [Interval(Real, 0, 50., closed="both")]
+        "percentile_clipping": [Interval(Real, 0, 50., closed="both")],
+        "leverage_percentile": [Interval(Real, 0, 99., closed="neither")]
     }
     def __init__(
         self,
@@ -125,6 +128,7 @@ class POPSRegression(BayesianRidge):
         resample_density=1.0,
         resampling_method='uniform',
         percentile_clipping=0.0,
+        leverage_percentile=50.0,
     ):
         super().__init__(
             max_iter=max_iter,
@@ -145,6 +149,7 @@ class POPSRegression(BayesianRidge):
         self.resample_density = resample_density
         self.resampling_method = resampling_method
         self.percentile_clipping = percentile_clipping
+        self.leverage_percentile = leverage_percentile
         self._validate_params()
 
         if self.fit_intercept:
@@ -280,15 +285,21 @@ class POPSRegression(BayesianRidge):
         )
 
         
-        errors = (y - X @ self.coef_)
+        self.errors = (y - X @ self.coef_)
         
         # errors to mean prediction        
         # leverage scores
         leverage = np.sum(np.dot(X,scaled_sigma_) * X,axis=1)
         self.leverage_scores = leverage
-
-        self.pointwise_correction = np.dot(X,scaled_sigma_)
-        self.pointwise_correction *= (errors/leverage)[:,None]
+        
+        # NEW 02/2025: only consider upper 50% of leverage corrections 
+        # to accelerate hypercube fitting and avoid "zero leverage" errors
+        # 
+        leverage_threshold = np.percentile(self.leverage_scores,self.leverage_percentile)
+        self.mask = self.leverage_scores > leverage_threshold
+        self.pointwise_correction = np.dot(X,scaled_sigma_)[self.mask]
+        self.pointwise_correction *= self.errors[self.mask,None]
+        self.pointwise_correction /= self.leverage_scores[self.mask,None]
         
         # Determine bounding hypercube from pointwise fits
         self.hypercube_support, self.hypercube_bounds = \
@@ -477,28 +488,23 @@ class POPSRegression(BayesianRidge):
         if self.fit_intercept_flag:
             X = np.hstack([X, np.ones((X.shape[0], 1))])
 
+        res = [self._decision_function(X)] # y_mean
         
-        y_mean = self._decision_function(X)
-        if not return_std:
-            return y_mean
+        if return_std:
+            # we do NOT include aleatoric error !
+            y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
+            
+            # Combine misspecification and epistemic uncertainty
+            y_misspecification_var = \
+                (np.dot(X, self.misspecification_sigma_) * X).sum(axis=1)
+            
+            res += [np.sqrt(y_misspecification_var + y_epistemic_var)] # y_std
         
-        # we do NOT include aleatoric error !
-        y_epistemic_var = (np.dot(X, self.sigma_) * X).sum(axis=1)
-        
-        # Combine misspecification and epistemic uncertainty
-        y_misspecification_var = \
-            (np.dot(X, self.misspecification_sigma_) * X).sum(axis=1)
-        
-        y_std = np.sqrt(y_misspecification_var + y_epistemic_var)
-        
-        res = [y_mean, y_std]
-
         if return_bounds:
-            y_max = (X@self.hypercube_samples).max(1) + y_mean
-            y_min = (X@self.hypercube_samples).min(1) + y_mean
-            res += [y_max, y_min]
-        
+            res += (X@self.hypercube_samples).max(1) + y_mean # y_max
+            res += (X@self.hypercube_samples).min(1) + y_mean # y_min
+            
         if return_epistemic_std:
-            res += [np.sqrt(y_epistemic_var)]
+            res += [np.sqrt(y_epistemic_var)] # y_epistemic_std
         
         return tuple(res)
