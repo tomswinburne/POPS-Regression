@@ -5,6 +5,7 @@ from scipy.linalg import pinvh, eigh
 from sklearn.base import BaseEstimator, RegressorMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.linear_model._base import _preprocess_data, _rescale_data
+from sklearn.utils.validation import _check_sample_weight
 
 from numbers import Real, Integral
 from scipy.stats import qmc 
