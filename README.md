@@ -27,11 +27,10 @@ pip install POPSRegression
 
 Fits the weights of a regression model using BayesianRidge, then estimates weight uncertainties (`sigma_` in `BayesianRidge`) accounting for model misspecification using the POPS (Pointwise Optimal Parameter Sets) algorithm [1]. The `alpha_` attribute which estimates aleatoric uncertainty is not used for predictions as correctly it should be assumed negligable.
 
-Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calcualtion. 
-In many important cases the target calcualtion is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
+Bayesian regression is often used in computational science to fit the weights of a surrogate model which approximates some complex calculation. 
+In many important cases the target calculation is near-deterministic, or low-noise, meaning the true data has vanishing aleatoric uncertainty. However, there can be large misspecification uncertainty, i.e. the model weights are instrinsically uncertain as the model is unable to exactly match training data. 
 
-Existing Bayesian regression schemes based on loss minimization can only estimate epistemic and aleatoric uncertainties. In the low-noise limit, 
-weight uncertainties (`sigma_` in `BayesianRidge`) are significantly underestimated as they only account for epistemic uncertainties which decay with increasing data. Predictions then assume any additional error is due to an aleatoric uncertainty (`alpha_` in `BayesianRidge`), which is erroneous in a low-noise setting. This has significant implications on how uncertainty is propagated using weight uncertainties. 
+Existing Bayesian regression schemes based on loss minimization can only estimate epistemic and aleatoric uncertainties. In the low-noise limit, weight uncertainties (`sigma_` in `BayesianRidge`) are significantly underestimated as they only account for epistemic uncertainties which decay with increasing data. Predictions then assume any additional error is due to an aleatoric uncertainty (`alpha_` in `BayesianRidge`), which is erroneous in a low-noise setting. This has significant implications on how uncertainty is propagated using weight uncertainties. 
 
 ## Example usage
 Here, usage follows `sklearn.linear_model`, inheriting `BayesianRidge`
@@ -62,14 +61,16 @@ y_pred, y_std, y_max, y_min = model.predict(X_test,return_std=True,return_bounds
 y_pred, y_std, y_max, y_min, y_epistemic_std = model.predict(X_test,return_std=True,return_bounds=True,return_epistemic_std=True)
 ```
 
-As can be seen, the final error bars give very good coverage of the test output
+# Toy example and MACE foundation model 
 
-Extreme low-dimensional case, fitting N data points to a quartic polynomial (P=5 parameters) to some complex oscillatory function
-
+Extreme low-dimensional case, fitting N data points to a quartic polynomial (P=5 parameters) to a complex oscillatory function.
 Green: two sigma of `sigma_` weight uncertainty from Bayesian Regression (i.e. without `alpha_` term for aleatoric error)
-
 Orange: two sigma of `sigma_` and `misspecification_sigma_` posterior from POPS Regression
-
 Gray: min-max of posterior from POPS Regression
 
+As can be seen, the final error bars give very good coverage of the test output
 <img src="https://github.com/tomswinburne/POPS-Regression/blob/main/example_image.png?raw=true"></img>
+
+As a more realistic example, below shows POPS applied to a P=256 linear corrector
+to the [MACE-MP-0 foundation model](https://mace-docs.readthedocs.io/). Following the [POPS paper](http://iopscience.iop.org/article/10.1088/2632-2153/ad9fce), the left panel shows the true test error histogram (black) and the *predicted* test error (green). The right panel shows the probabilty that the true test error lies outside of the POPS max/min bounds as a function of N/P.
+<img src="https://github.com/tomswinburne/POPS-Regression/blob/main/POPSRegression_MACE-MP-0.png?raw=true"></img>
