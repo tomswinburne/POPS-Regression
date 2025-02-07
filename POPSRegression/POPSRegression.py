@@ -5,8 +5,7 @@ from scipy.linalg import pinvh, eigh
 from sklearn.base import BaseEstimator, RegressorMixin, _fit_context
 from sklearn.utils._param_validation import Interval, StrOptions
 from sklearn.linear_model._base import _preprocess_data, _rescale_data
-from sklearn.utils.validation import _check_sample_weight
-
+from sklearn.utils.validation import _check_sample_weight, validate_data
 from numbers import Real, Integral
 from scipy.stats import qmc 
 
@@ -108,7 +107,7 @@ class POPSRegression(BayesianRidge):
         "mode_threshold": [Interval(Real, 0, None, closed="neither")],
         "resample_density": [Interval(Real, 0, None, closed="neither")],
         "percentile_clipping": [Interval(Real, 0, 50., closed="both")],
-        "leverage_percentile": [Interval(Real, 0, 99., closed="neither")]
+        "leverage_percentile": [Interval(Real, 0.0, 100., closed="left")]
     }
     def __init__(
         self,
@@ -186,7 +185,7 @@ class POPSRegression(BayesianRidge):
             # add a constant feature
             X = np.hstack([X, np.ones((X.shape[0], 1))])
 
-        X, y = self._validate_data(
+        X, y = validate_data(self,
             X, y, dtype=[np.float64, np.float32])
         dtype = X.dtype
 
@@ -297,7 +296,7 @@ class POPSRegression(BayesianRidge):
         # to accelerate hypercube fitting and avoid "zero leverage" errors
         # 
         leverage_threshold = np.percentile(self.leverage_scores,self.leverage_percentile)
-        self.mask = self.leverage_scores > leverage_threshold
+        self.mask = self.leverage_scores >= leverage_threshold
         self.pointwise_correction = np.dot(X,scaled_sigma_)[self.mask]
         self.pointwise_correction *= self.errors[self.mask,None]
         self.pointwise_correction /= self.leverage_scores[self.mask,None]
@@ -504,8 +503,8 @@ class POPSRegression(BayesianRidge):
             res += [np.sqrt(y_misspecification_var + y_epistemic_var)] # y_std
         
         if return_bounds:
-            res += (X@self.hypercube_samples).max(1) + y_mean # y_max
-            res += (X@self.hypercube_samples).min(1) + y_mean # y_min
+            res += [(X@self.hypercube_samples).max(1) + y_mean] # y_max
+            res += [(X@self.hypercube_samples).min(1) + y_mean] # y_min
             
         if return_epistemic_std:
             res += [np.sqrt(y_epistemic_var)] # y_epistemic_std
