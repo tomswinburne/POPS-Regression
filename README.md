@@ -61,8 +61,7 @@ y_pred, y_std, y_max, y_min = model.predict(X_test,return_std=True,return_bounds
 y_pred, y_std, y_max, y_min, y_epistemic_std = model.predict(X_test,return_std=True,return_bounds=True,return_epistemic_std=True)
 ```
 
-# Toy example and MACE foundation model 
-
+# Toy example
 Extreme low-dimensional case, fitting N data points to a quartic polynomial (P=5 parameters) to a complex oscillatory function.
 Green: two sigma of `sigma_` weight uncertainty from Bayesian Regression (i.e. without `alpha_` term for aleatoric error)
 Orange: two sigma of `sigma_` and `misspecification_sigma_` posterior from POPS Regression
@@ -70,7 +69,3 @@ Gray: min-max of posterior from POPS Regression
 
 As can be seen, the final error bars give very good coverage of the test output
 <img src="https://github.com/tomswinburne/POPS-Regression/blob/main/example_image.png?raw=true"></img>
-
-As a more realistic example, below shows POPS applied to a P=256 linear corrector
-to the [MACE-MP-0 foundation model](https://mace-docs.readthedocs.io/). Following the [POPS paper](http://iopscience.iop.org/article/10.1088/2632-2153/ad9fce), the left panel shows the true test error histogram (black) and the *predicted* test error (green). The right panel shows the probabilty that the true test error lies outside of the POPS max/min bounds as a function of N/P.
-<img src="https://github.com/tomswinburne/POPS-Regression/blob/main/POPSRegression_MACE-MP-0.png?raw=true"></img>

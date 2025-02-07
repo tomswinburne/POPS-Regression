@@ -488,8 +488,10 @@ class POPSRegression(BayesianRidge):
         """
         if self.fit_intercept_flag:
             X = np.hstack([X, np.ones((X.shape[0], 1))])
-
-        res = [self._decision_function(X)] # y_mean
+        
+        y_mean = self._decision_function(X)
+        
+        res = [y_mean] # y_mean
         
         if return_std:
             # we do NOT include aleatoric error !
